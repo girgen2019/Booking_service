@@ -3,10 +3,16 @@ export interface DBConnection  {
     print()
 }
 
+export interface BookData {
+  title: string;
+  author: string;
+  year: number;
+}
+
 export interface DBBaseCRUD {
-    create(title:string, autor:string, year:number),
-    read(),
+    create(bookData: BookData),
+    readByID(id:number),
     readAll(),
     update(),
-    delete(),
+    delete(id:number),
 }

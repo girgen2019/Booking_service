@@ -4,13 +4,13 @@ import express, { Request, Response } from 'express';
 import logger from '../utils/logger';
 import chalk from 'chalk';
 import { PostgresDB } from './DataBase/bd';
-import { DBConnection, DBBaseCRUD} from '../Interfases/interfaces';
+import { DBConnection, DBBaseCRUD, BookData } from '../Interfases/interfaces';
 import dotenv from 'dotenv';
-dotenv.config()
+dotenv.config();
 
 const app = express();
 app.use(express.json());
-const postgreDB: DBConnection & DBBaseCRUD = new PostgresDB();
+const postgreDB: DBConnection & DBBaseCRUD  = new PostgresDB();
 
 (async () => {
   await postgreDB.connect();
@@ -19,34 +19,34 @@ const postgreDB: DBConnection & DBBaseCRUD = new PostgresDB();
 
 app.get('/books', async (req: Request, res: Response) => {
   try {
-    postgreDB.print()
-    const allBooks = await postgreDB.readAll()
+    postgreDB.print();
+    const allBooks = await postgreDB.readAll();
     res.status(200).json(allBooks.rows);
   } catch (error) {
     res.status(500).json('Internal server error');
   }
 });
 
-// app.get('/book/:id', async (req: Request, res: Response) => {
-//   const id = Number(req.params.id);
+app.get('/book/:id', async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
 
-//   const { rows } = await pool.query('SELECT * FROM books WHERE id = $1', [id]);
-//   if (rows.length === 0) {
-//     return res.status(404).json('404 Not Found');
-//   }
-
-//   return res.status(200).json(rows[0]);
-// });
+  const { rows } = await postgreDB.readByID(id);
+  if (rows.length === 0) {
+    return res.status(404).json('404 Not Found');
+  }
+    return res.status(200).json(rows[0]);
+});
 
 app.post('/create/book', async (req, res) => {
-  const { title, autor, year } = req.body;
+  const { title, author, year } = req.body;
 
-  if (!title || !autor) {
+  if (!title || !author) {
     return res.status(400).json({ message: 'Names book need necessary' });
   }
 
   try {
-   const request = await postgreDB.create(title, autor, year )
+    const bookData = { title, author, year }
+    const request = await postgreDB.create(bookData);
     return res.status(201).json(request);
   } catch (error) {
     console.error('[POST /books] error:', error);
@@ -56,16 +56,16 @@ app.post('/create/book', async (req, res) => {
   }
 });
 
-// app.delete('/delete/book/:id', async (req, res) => {
-//   const id = +req.params.id
-//   const book = bookStore.find(el => el.id === id)
-//   if(!book){
-//      return res.status(404).json("404 Not Found")
-//   }
-//   bookStore.splice(id,1)
-//   chalk.bgGreen(book)
-//   return res.status(200).json(`${book.autor} "${book.title}" was delete`)
-// });
+app.delete('/delete/book/:id', async (req, res) => {
+  const id = Number(req.params.id)
+  const {deleteBook} = await postgreDB.delete(id)
+  if(!deleteBook){
+     return res.status(404).json("404 Not Found")
+  }
+
+  logger.info(chalk.bgGreen(deleteBook))
+  return res.status(200).json(`${deleteBook.autor} "${deleteBook.title}" was delete`)
+});
 
 export default app;
 

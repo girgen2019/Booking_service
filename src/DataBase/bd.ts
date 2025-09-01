@@ -1,7 +1,7 @@
 /** @format */
 
 import { Pool, PoolConfig } from 'pg';
-import { DBBaseCRUD, DBConnection } from '../../Interfases/interfaces';
+import { DBBaseCRUD, DBConnection, BookData } from '../../Interfases/interfaces';
 import logger from '../../utils/logger';
 import chalk from 'chalk';
 
@@ -32,26 +32,35 @@ export class PostgresDB implements DBConnection, DBBaseCRUD {
     await this.pool.connect();
   }
 
-  async create(title:string, autor:string, year:number ) {
+  async create(bookData:BookData) {
+    const {title, author, year} = bookData
      const { rows } = await this.pool.query(
       `INSERT INTO public.books (title, autor, year)
        VALUES ($1, $2, $3)
        RETURNING id, title, autor, year`,
-      [title, autor, year ?? null])
+      [title, author, year ?? null])
   }
 
-  async read() {
-    await this.pool.query('SELECT * FROM books ORDER BY id ASC');
+  async readByID(id:number) {
+  const { rows } = await this.pool.query('SELECT * FROM books WHERE id = $1', [id]);
   }
 
   async readAll() {
     const allBooks = await this.pool.query(
       'SELECT * FROM books ORDER BY id ASC'
     );
-    return allBooks;
+    logger.info(chalk.greenBright(JSON.stringify(allBooks.rows)))
+    return JSON.stringify(allBooks.rows);
   }
 
   async update() {}
 
-  async delete() {}
+  async delete(id:number) {
+    const { rows } = await this.pool.query('DELETE FROM books WHERE id = $1 RETURNING *',[id]);
+    if (rows.length === 0) {
+      logger.warn(chalk.yellow(`Book with id ${id} not found for deletion.`));
+      return null;
+    }
+    return JSON.stringify(rows[0]);
+  }
 }
