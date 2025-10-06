@@ -21,20 +21,24 @@ app.get('/books', async (req: Request, res: Response) => {
   try {
     postgreDB.print();
     const allBooks = await postgreDB.readAll();
-    res.status(200).json(allBooks.rows);
+    return res.status(200).json(allBooks);
   } catch (error) {
-    res.status(500).json('Internal server error');
+    return res.status(500).json('Internal server error');
   }
 });
 
 app.get('/book/:id', async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-
-  const { rows } = await postgreDB.readByID(id);
-  if (rows.length === 0) {
-    return res.status(404).json('404 Not Found');
-  }
+  try {
+    const id = Number(req.params.id);
+    const { rows } = await postgreDB.readByID(id);
+    
+    if (rows.length === 0) {
+      return res.status(404).json('404 Not Found');
+    }
     return res.status(200).json(rows[0]);
+  } catch (error) {
+    return res.status(500).json('Internal server error');
+  }
 });
 
 app.post('/create/book', async (req, res) => {
@@ -52,19 +56,24 @@ app.post('/create/book', async (req, res) => {
     console.error('[POST /books] error:', error);
     return res
       .status(500)
-      .json({ message: 'Internal server error', detail: error.message });
+      .json({ message: 'Internal server error',  error});
   }
 });
 
 app.delete('/delete/book/:id', async (req, res) => {
-  const id = Number(req.params.id)
-  const {deleteBook} = await postgreDB.delete(id)
-  if(!deleteBook){
-     return res.status(404).json("404 Not Found")
-  }
+  try {
+    const id = Number(req.params.id);
+    const { deleteBook } = await postgreDB.delete(id);
+    
+    if (!deleteBook) {
+      return res.status(404).json("404 Not Found");
+    }
 
-  logger.info(chalk.bgGreen(deleteBook))
-  return res.status(200).json(`${deleteBook.autor} "${deleteBook.title}" was delete`)
+    logger.info(chalk.bgGreen(deleteBook));
+    return res.status(200).json(`${deleteBook.author} "${deleteBook.title}" was deleted`);
+  } catch (error) {
+    return res.status(500).json('Internal server error');
+  }
 });
 
 export default app;
@@ -79,3 +88,4 @@ export default app;
 // исполняющий файл миграция
 // придумать одно поле в табл
 // метод креэйт в интерфейсе у себя в параметре должен принимать, что то двугое (body)
+//

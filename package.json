@@ -5,7 +5,11 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "tsx watch src/server.ts"
+    "dev": "tsx watch src/server.ts",
+    "migrate": "node src/scripts/migrate.js",
+    "migrate:create": "node src/scripts/create-migration.js",
+    "migrate:rollback": "node src/scripts/rollback.js",
+    "db:check": "node check-db.js"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +21,7 @@
     "env": "^0.0.2",
     "express": "^5.1.0",
     "pg": "^8.16.3",
+    "psql": "^0.0.1",
     "winston": "^3.17.0",
     "zod": "^4.0.17"
   },

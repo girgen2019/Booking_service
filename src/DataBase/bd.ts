@@ -26,23 +26,32 @@ export class PostgresDB implements DBConnection, DBBaseCRUD {
 
   print() {
     console.log(this.password);
+    console.log(this.user);
+    console.log(this.database);
+    console.log(this.port);
+    console.log(this.host);
   }
 
   async connect() {
     await this.pool.connect();
   }
 
-  async create(bookData:BookData) {
-    const {title, author, year} = bookData
-     const { rows } = await this.pool.query(
-      `INSERT INTO public.books (title, autor, year)
+  async create(bookData: BookData) {
+    const { title, author, year } = bookData
+    console.log('bookData', bookData);
+
+    const { rows } = await this.pool.query(
+      `INSERT INTO public.books (title, author, year)
        VALUES ($1, $2, $3)
-       RETURNING id, title, autor, year`,
+       RETURNING id, title, author, year`,
       [title, author, year ?? null])
+    logger.info(chalk.bgBlue(title, author, year))
+    return rows[0]
   }
 
-  async readByID(id:number) {
-  const { rows } = await this.pool.query('SELECT * FROM books WHERE id = $1', [id]);
+  async readByID(id: number) {
+    const { rows } = await this.pool.query('SELECT * FROM books WHERE id = $1', [id]);
+    return { rows };
   }
 
   async readAll() {
@@ -50,17 +59,18 @@ export class PostgresDB implements DBConnection, DBBaseCRUD {
       'SELECT * FROM books ORDER BY id ASC'
     );
     logger.info(chalk.greenBright(JSON.stringify(allBooks.rows)))
-    return JSON.stringify(allBooks.rows);
+    return allBooks.rows;
   }
 
-  async update() {}
+  async update() { }
 
-  async delete(id:number) {
-    const { rows } = await this.pool.query('DELETE FROM books WHERE id = $1 RETURNING *',[id]);
+  async delete(id: number) {
+    const { rows } = await this.pool.query('DELETE FROM books WHERE id = $1 RETURNING *', [id]);
     if (rows.length === 0) {
       logger.warn(chalk.yellow(`Book with id ${id} not found for deletion.`));
-      return null;
+      return { deleteBook: null };
     }
-    return JSON.stringify(rows[0]);
+    logger.info(chalk.bgBlue(id))
+    return { deleteBook: rows[0] };
   }
 }
