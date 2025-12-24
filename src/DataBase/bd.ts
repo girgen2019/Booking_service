@@ -24,7 +24,7 @@ export class PostgresDB implements DBConnection, DBBaseCRUD {
     this.pool = new Pool(dbConfig);
   }
 
-  print() {
+  print(): void {
     console.log(this.password);
     console.log(this.user);
     console.log(this.database);
@@ -37,14 +37,14 @@ export class PostgresDB implements DBConnection, DBBaseCRUD {
   }
 
   async create(bookData: BookData) {
-    const { title, author, year } = bookData
+    const { title, author, year, price } = bookData
     console.log('bookData', bookData);
 
     const { rows } = await this.pool.query(
-      `INSERT INTO public.books (title, author, year)
-       VALUES ($1, $2, $3)
-       RETURNING id, title, author, year`,
-      [title, author, year ?? null])
+      `INSERT INTO public.books (title, author, year, price)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, title, author, year, price`,
+      [title, author, year ?? null, price ?? null])
     logger.info(chalk.bgBlue(title, author, year))
     return rows[0]
   }
@@ -62,7 +62,15 @@ export class PostgresDB implements DBConnection, DBBaseCRUD {
     return allBooks.rows;
   }
 
-  async update() { }
+  async update(id: number, newTitle: string) {
+    const { rows } = await this.pool.query('UPDATE books SET title = $1 WHERE id = $2 RETURNING *', [newTitle, id])
+    if (rows.length === 0) {
+      logger.warn(chalk.yellow(`Book with id ${id} not found for updating.`));
+      return { updateBook: null };
+    }
+    logger.info(chalk.bgBlue(id))
+    return { updateBook: rows[0] };
+  }
 
   async delete(id: number) {
     const { rows } = await this.pool.query('DELETE FROM books WHERE id = $1 RETURNING *', [id]);

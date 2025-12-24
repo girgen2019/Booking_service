@@ -10,6 +10,6 @@
 
 -- Не забудьте добавить комментарии:
 -- COMMENT ON COLUMN books.new_field IS 'Описание нового поля';
-ALTER TABLE books ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE books ADD COLUMN created_at TIMESTAMP DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS idx_books_created_at ON books(created_at);
 COMMENT ON COLUMN books.created_at IS 'Дата и время создания записи о книге';
