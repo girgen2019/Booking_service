@@ -76,6 +76,28 @@ curl -X POST localhost:3080/books/1/reservations \
 | 404 | book or reservation not found |
 | 409 | dates overlap; reservation already cancelled |
 
+## Check double booking by hand
+
+With an active reservation of book 1 for `2026-12-01`…`2026-12-05`:
+
+| Request dates | Expected |
+|---|---|
+| `12-02`…`12-03` (inside) | 409 |
+| `12-05`…`12-07` (same last day) | 409 |
+| `11-28`…`12-10` (covers it) | 409 |
+| `12-06`…`12-06` (next day) | 201 |
+| same dates after `PATCH /reservations/:id/cancel` | 201 |
+
+Parallel requests for the same free dates: exactly one `201`, the rest `409`.
+
+```bash
+for i in 1 2 3 4 5; do
+  curl -s -o /dev/null -w '%{http_code}\n' -X POST localhost:3080/books/1/reservations \
+    -H 'Content-Type: application/json' \
+    -d '{"customerName":"Race","startDate":"2026-12-20","endDate":"2026-12-22"}' &
+done; wait
+```
+
 ## Database
 
 | Table | Columns |
