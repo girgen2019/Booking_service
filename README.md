@@ -78,8 +78,27 @@ curl -X POST localhost:3080/books/1/reservations \
 
 ## Database
 
+| Table | Columns |
+|---|---|
+| `books` | `id`, `title`, `author`, `year`, `price`, `created_at` |
+| `reservations` | `id`, `book_id` → `books.id`, `customer_name`, `start_date`, `end_date`, `status` (`active` / `cancelled`), `created_at` |
+
 Migrations are plain SQL files in `src/migrations`, applied in order by `npm run migrate`
 and recorded in the `migrations` table. New one: `npm run migrate:create <name>`.
+
+## Project structure
+
+```
+src/
+  app.ts            routes, validation, Swagger docs
+  server.ts         starts the HTTP server
+  DataBase/bd.ts    PostgreSQL queries
+  config/swagger.ts OpenAPI setup and schemas
+  migrations/       SQL migrations 001-005
+  scripts/          migrate, create-migration
+Interfases/         TypeScript interfaces
+utils/logger.ts     winston logger
+```
 
 ## Known issues
 
