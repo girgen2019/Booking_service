@@ -34,6 +34,19 @@ const swaggerOptions = {
                         created_at: { type: 'string', format: 'date-time' }
                     },
                     required: ['id', 'title', 'author', 'year']
+                },
+                Reservation: {
+                    type: 'object',
+                    properties: {
+                        id: { type: 'integer' },
+                        book_id: { type: 'integer' },
+                        customer_name: { type: 'string' },
+                        start_date: { type: 'string', format: 'date', example: '2026-12-01' },
+                        end_date: { type: 'string', format: 'date', example: '2026-12-05' },
+                        status: { type: 'string', enum: ['active', 'cancelled'] },
+                        created_at: { type: 'string', format: 'date-time' }
+                    },
+                    required: ['id', 'book_id', 'customer_name', 'start_date', 'end_date', 'status']
                 }
             }
         }

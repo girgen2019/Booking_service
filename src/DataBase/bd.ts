@@ -1,11 +1,21 @@
 /** @format */
 
-import { Pool, PoolConfig } from 'pg';
-import { DBBaseCRUD, DBConnection, BookData } from '../../Interfases/interfaces';
+import { Pool, PoolConfig, types } from 'pg';
+import {
+  DBBaseCRUD,
+  DBConnection,
+  BookData,
+  DBReservationCRUD,
+  Reservation,
+  ReservationData,
+} from '../../Interfases/interfaces';
 import logger from '../../utils/logger';
 import chalk from 'chalk';
 
-export class PostgresDB implements DBConnection, DBBaseCRUD {
+// DATE отдаём как есть ('2026-12-01'), иначе pg превращает его в Date и сдвигает на часовой пояс
+types.setTypeParser(1082, (value: string) => value);
+
+export class PostgresDB implements DBConnection, DBBaseCRUD, DBReservationCRUD {
   private pool: Pool;
   constructor(
     private user = process.env.DB_USER,
@@ -80,5 +90,42 @@ export class PostgresDB implements DBConnection, DBBaseCRUD {
     }
     logger.info(chalk.bgBlue(id))
     return { deleteBook: rows[0] };
+  }
+
+  async createReservation(data: ReservationData): Promise<Reservation> {
+    const { bookId, customerName, startDate, endDate } = data;
+    const { rows } = await this.pool.query(
+      `INSERT INTO reservations (book_id, customer_name, start_date, end_date)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [bookId, customerName, startDate, endDate]
+    );
+    logger.info(chalk.bgBlue(`Book ${bookId} reserved: ${startDate} - ${endDate}`));
+    return rows[0];
+  }
+
+  async readReservations(bookId?: number): Promise<Reservation[]> {
+    const { rows } = bookId === undefined
+      ? await this.pool.query('SELECT * FROM reservations ORDER BY start_date, id')
+      : await this.pool.query('SELECT * FROM reservations WHERE book_id = $1 ORDER BY start_date, id', [bookId]);
+    return rows;
+  }
+
+  async readReservationByID(id: number): Promise<Reservation | null> {
+    const { rows } = await this.pool.query('SELECT * FROM reservations WHERE id = $1', [id]);
+    return rows[0] ?? null;
+  }
+
+  async cancelReservation(id: number): Promise<Reservation | null> {
+    const { rows } = await this.pool.query(
+      `UPDATE reservations SET status = 'cancelled' WHERE id = $1 RETURNING *`,
+      [id]
+    );
+    if (rows.length === 0) {
+      logger.warn(chalk.yellow(`Reservation with id ${id} not found for cancelling.`));
+      return null;
+    }
+    logger.info(chalk.bgBlue(`Reservation ${id} cancelled`));
+    return rows[0];
   }
 }

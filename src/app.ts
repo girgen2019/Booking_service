@@ -4,7 +4,7 @@ import express, { Request, Response } from 'express';
 import logger from '../utils/logger';
 import chalk from 'chalk';
 import { PostgresDB } from './DataBase/bd';
-import { DBConnection, DBBaseCRUD, BookData } from '../Interfases/interfaces';
+import { DBConnection, DBBaseCRUD, BookData, DBReservationCRUD } from '../Interfases/interfaces';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './config/swagger';
@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(cors())
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
-const postgreDB: DBConnection & DBBaseCRUD = new PostgresDB();
+const postgreDB: DBConnection & DBBaseCRUD & DBReservationCRUD = new PostgresDB();
 
 (async () => {
   await postgreDB.connect();
@@ -311,6 +311,256 @@ app.put('/book/:id', async (req, res) => {
   }
 
 })
+
+// ================ RESERVATIONS
+
+const MAX_CUSTOMER_NAME = 100;
+
+// Положительное целое из пути или query (?bookId=), иначе null → 400 вместо падения базы на NaN
+function parseId(value: unknown): number | null {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+// Настоящая дата в формате YYYY-MM-DD (2026-02-31 не пройдёт)
+function isValidDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(value + 'T00:00:00Z');
+  return !isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+function validateReservation(body: any): string | null {
+  const { customerName, startDate, endDate } = body ?? {};
+  if (typeof customerName !== 'string' || !customerName.trim()) return 'customerName is required';
+  if (customerName.trim().length > MAX_CUSTOMER_NAME) return `customerName is longer than ${MAX_CUSTOMER_NAME} characters`;
+  if (!isValidDate(startDate)) return 'startDate must be a real date in YYYY-MM-DD format';
+  if (!isValidDate(endDate)) return 'endDate must be a real date in YYYY-MM-DD format';
+  if (startDate < today()) return 'startDate cannot be in the past';
+  if (endDate < startDate) return 'endDate cannot be before startDate';
+  return null;
+}
+
+/**
+ * @swagger
+ * /books/{id}/reservations:
+ *   post:
+ *     summary: Забронировать книгу на даты
+ *     tags: [Reservations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID книги
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - customerName
+ *               - startDate
+ *               - endDate
+ *             properties:
+ *               customerName:
+ *                 type: string
+ *                 maxLength: 100
+ *                 example: "Henadzi"
+ *               startDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Первый день брони, не в прошлом
+ *                 example: "2026-12-01"
+ *               endDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Последний день брони (включительно), не раньше startDate
+ *                 example: "2026-12-05"
+ *     responses:
+ *       201:
+ *         description: Бронь создана
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Reservation'
+ *       400:
+ *         description: Ошибка валидации (ID, имя, даты)
+ *       404:
+ *         description: Книга не найдена
+ *       500:
+ *         description: Внутренняя ошибка сервера
+ */
+app.post('/books/:id/reservations', async (req, res) => {
+  const bookId = parseId(req.params.id);
+  if (bookId === null) {
+    return res.status(400).json({ message: 'Book id must be a positive integer' });
+  }
+  const error = validateReservation(req.body);
+  if (error) {
+    return res.status(400).json({ message: error });
+  }
+
+  try {
+    const { rows } = await postgreDB.readByID(bookId);
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Book not found' });
+    }
+
+    const { customerName, startDate, endDate } = req.body;
+    const reservation = await postgreDB.createReservation({
+      bookId,
+      customerName: customerName.trim(),
+      startDate,
+      endDate,
+    });
+    return res.status(201).json(reservation);
+  } catch (error) {
+    logger.error(`[POST /books/${bookId}/reservations] ${error}`);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+/**
+ * @swagger
+ * /reservations:
+ *   get:
+ *     summary: Список броней (все или по одной книге)
+ *     tags: [Reservations]
+ *     parameters:
+ *       - in: query
+ *         name: bookId
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Только брони этой книги
+ *     responses:
+ *       200:
+ *         description: Список броней по дате начала
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Reservation'
+ *       400:
+ *         description: bookId не положительное целое
+ *       500:
+ *         description: Внутренняя ошибка сервера
+ */
+app.get('/reservations', async (req, res) => {
+  let bookId: number | undefined;
+  if (req.query.bookId !== undefined) {
+    const parsed = parseId(req.query.bookId);
+    if (parsed === null) {
+      return res.status(400).json({ message: 'bookId must be a positive integer' });
+    }
+    bookId = parsed;
+  }
+
+  try {
+    return res.status(200).json(await postgreDB.readReservations(bookId));
+  } catch (error) {
+    logger.error(`[GET /reservations] ${error}`);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+/**
+ * @swagger
+ * /reservations/{id}:
+ *   get:
+ *     summary: Получить бронь по ID
+ *     tags: [Reservations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Бронь найдена
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Reservation'
+ *       400:
+ *         description: ID не положительное целое
+ *       404:
+ *         description: Бронь не найдена
+ *       500:
+ *         description: Внутренняя ошибка сервера
+ */
+app.get('/reservations/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    return res.status(400).json({ message: 'Reservation id must be a positive integer' });
+  }
+
+  try {
+    const reservation = await postgreDB.readReservationByID(id);
+    if (!reservation) {
+      return res.status(404).json({ message: 'Reservation not found' });
+    }
+    return res.status(200).json(reservation);
+  } catch (error) {
+    logger.error(`[GET /reservations/${id}] ${error}`);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+/**
+ * @swagger
+ * /reservations/{id}/cancel:
+ *   patch:
+ *     summary: Отменить бронь
+ *     tags: [Reservations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Бронь отменена (status = cancelled), даты снова свободны
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Reservation'
+ *       400:
+ *         description: ID не положительное целое
+ *       404:
+ *         description: Бронь не найдена
+ *       409:
+ *         description: Бронь уже отменена
+ *       500:
+ *         description: Внутренняя ошибка сервера
+ */
+app.patch('/reservations/:id/cancel', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    return res.status(400).json({ message: 'Reservation id must be a positive integer' });
+  }
+
+  try {
+    const existing = await postgreDB.readReservationByID(id);
+    if (!existing) {
+      return res.status(404).json({ message: 'Reservation not found' });
+    }
+    if (existing.status === 'cancelled') {
+      return res.status(409).json({ message: 'Reservation is already cancelled' });
+    }
+    return res.status(200).json(await postgreDB.cancelReservation(id));
+  } catch (error) {
+    logger.error(`[PATCH /reservations/${id}/cancel] ${error}`);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
 
 export default app;
 
