@@ -116,6 +116,18 @@ export class PostgresDB implements DBConnection, DBBaseCRUD, DBReservationCRUD {
     return rows[0] ?? null;
   }
 
+  // Активные брони книги, которые пересекаются с датами [startDate, endDate] (обе включительно)
+  async findOverlapping(bookId: number, startDate: string, endDate: string): Promise<Reservation[]> {
+    const { rows } = await this.pool.query(
+      `SELECT * FROM reservations
+       WHERE book_id = $1 AND status = 'active'
+         AND daterange(start_date, end_date, '[]') && daterange($2::date, $3::date, '[]')
+       ORDER BY start_date`,
+      [bookId, startDate, endDate]
+    );
+    return rows;
+  }
+
   async cancelReservation(id: number): Promise<Reservation | null> {
     const { rows } = await this.pool.query(
       `UPDATE reservations SET status = 'cancelled' WHERE id = $1 RETURNING *`,

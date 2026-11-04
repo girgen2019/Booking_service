@@ -42,4 +42,5 @@ export interface DBReservationCRUD {
     readReservations(bookId?: number): Promise<Reservation[]>;
     readReservationByID(id: number): Promise<Reservation | null>;
     cancelReservation(id: number): Promise<Reservation | null>;
+    findOverlapping(bookId: number, startDate: string, endDate: string): Promise<Reservation[]>;
 }

@@ -315,6 +315,7 @@ app.put('/book/:id', async (req, res) => {
 // ================ RESERVATIONS
 
 const MAX_CUSTOMER_NAME = 100;
+const PG_EXCLUSION_VIOLATION = '23P01'; // код ошибки Postgres: нарушено ограничение EXCLUDE (двойная бронь)
 
 // Положительное целое из пути или query (?bookId=), иначе null → 400 вместо падения базы на NaN
 function parseId(value: unknown): number | null {
@@ -391,6 +392,8 @@ function validateReservation(body: any): string | null {
  *         description: Ошибка валидации (ID, имя, даты)
  *       404:
  *         description: Книга не найдена
+ *       409:
+ *         description: Книга уже забронирована на пересекающиеся даты (conflicts — эти брони)
  *       500:
  *         description: Внутренняя ошибка сервера
  */
@@ -411,6 +414,12 @@ app.post('/books/:id/reservations', async (req, res) => {
     }
 
     const { customerName, startDate, endDate } = req.body;
+    // Понятный ответ, с какой бронью пересеклись. Окончательно двойную бронь запрещает база (миграция 005)
+    const conflicts = await postgreDB.findOverlapping(bookId, startDate, endDate);
+    if (conflicts.length > 0) {
+      return res.status(409).json({ message: 'Book is already reserved for these dates', conflicts });
+    }
+
     const reservation = await postgreDB.createReservation({
       bookId,
       customerName: customerName.trim(),
@@ -418,8 +427,74 @@ app.post('/books/:id/reservations', async (req, res) => {
       endDate,
     });
     return res.status(201).json(reservation);
-  } catch (error) {
+  } catch (error: any) {
+    // Два одновременных запроса прошли проверку выше, второй остановило ограничение reservations_no_overlap
+    if (error?.code === PG_EXCLUSION_VIOLATION) {
+      return res.status(409).json({ message: 'Book is already reserved for these dates' });
+    }
     logger.error(`[POST /books/${bookId}/reservations] ${error}`);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+/**
+ * @swagger
+ * /books/{id}/availability:
+ *   get:
+ *     summary: Свободна ли книга на даты
+ *     tags: [Reservations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: from
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         example: "2026-12-01"
+ *       - in: query
+ *         name: to
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         example: "2026-12-05"
+ *     responses:
+ *       200:
+ *         description: available — свободна ли книга; conflicts — активные брони на эти даты
+ *       400:
+ *         description: Неверный ID или даты
+ *       404:
+ *         description: Книга не найдена
+ *       500:
+ *         description: Внутренняя ошибка сервера
+ */
+app.get('/books/:id/availability', async (req, res) => {
+  const bookId = parseId(req.params.id);
+  if (bookId === null) {
+    return res.status(400).json({ message: 'Book id must be a positive integer' });
+  }
+  const { from, to } = req.query;
+  if (!isValidDate(from) || !isValidDate(to)) {
+    return res.status(400).json({ message: 'from and to must be real dates in YYYY-MM-DD format' });
+  }
+  if (to < from) {
+    return res.status(400).json({ message: 'to cannot be before from' });
+  }
+
+  try {
+    const { rows } = await postgreDB.readByID(bookId);
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Book not found' });
+    }
+    const conflicts = await postgreDB.findOverlapping(bookId, from, to);
+    return res.status(200).json({ bookId, from, to, available: conflicts.length === 0, conflicts });
+  } catch (error) {
+    logger.error(`[GET /books/${bookId}/availability] ${error}`);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });
