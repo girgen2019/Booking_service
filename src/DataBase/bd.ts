@@ -35,8 +35,8 @@ export class PostgresDB implements DBConnection, DBBaseCRUD, DBReservationCRUD {
     this.pool = new Pool(dbConfig);
   }
 
+  // Без пароля: настройки подключения попадают в логи
   print(): void {
-    console.log(this.password);
     console.log(this.user);
     console.log(this.database);
     console.log(this.port);

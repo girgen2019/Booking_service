@@ -43,7 +43,6 @@ const postgreDB: DBConnection & DBBaseCRUD & DBReservationCRUD = new PostgresDB(
  */
 app.get('/books', async (req: Request, res: Response) => {
   try {
-    postgreDB.print();
     const allBooks = await postgreDB.readAll();
     return res.status(200).json(allBooks);
   } catch (error) {
