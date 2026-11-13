@@ -43,9 +43,10 @@ const swaggerOptions = {
                         customer_name: { type: 'string' },
                         start_date: { type: 'string', format: 'date', example: '2026-12-01' },
                         end_date: { type: 'string', format: 'date', example: '2026-12-05' },
-                        status: { type: 'string', enum: ['active', 'issued', 'cancelled'] },
+                        status: { type: 'string', enum: ['active', 'issued', 'returned', 'cancelled'] },
                         created_at: { type: 'string', format: 'date-time' },
-                        issued_at: { type: 'string', format: 'date-time', nullable: true }
+                        issued_at: { type: 'string', format: 'date-time', nullable: true },
+                        returned_at: { type: 'string', format: 'date-time', nullable: true }
                     },
                     required: ['id', 'book_id', 'customer_name', 'start_date', 'end_date', 'status']
                 }

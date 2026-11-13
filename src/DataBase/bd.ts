@@ -156,4 +156,20 @@ export class PostgresDB implements DBConnection, DBBaseCRUD, DBReservationCRUD {
     logger.info(chalk.bgBlue(`Reservation ${id} issued`));
     return rows[0];
   }
+
+  // Только из issued: книгу нельзя вернуть, если её не выдавали, и нельзя вернуть дважды
+  async returnReservation(id: number): Promise<Reservation | null> {
+    const { rows } = await this.pool.query(
+      `UPDATE reservations SET status = 'returned', returned_at = NOW()
+       WHERE id = $1 AND status = 'issued'
+       RETURNING *`,
+      [id]
+    );
+    if (rows.length === 0) {
+      logger.warn(chalk.yellow(`Reservation with id ${id} was not returned.`));
+      return null;
+    }
+    logger.info(chalk.bgBlue(`Reservation ${id} returned`));
+    return rows[0];
+  }
 }

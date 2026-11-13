@@ -612,7 +612,7 @@ app.get('/reservations/:id', async (req, res) => {
  *       404:
  *         description: Бронь не найдена
  *       409:
- *         description: Бронь уже отменена или книга уже выдана
+ *         description: Бронь уже отменена, книга уже выдана или возвращена
  *       500:
  *         description: Внутренняя ошибка сервера
  */
@@ -633,6 +633,9 @@ app.patch('/reservations/:id/cancel', async (req, res) => {
     // Книга уже у читателя: бронь нельзя просто отменить
     if (existing.status === 'issued') {
       return res.status(409).json({ message: 'Book is already issued, the reservation cannot be cancelled' });
+    }
+    if (existing.status === 'returned') {
+      return res.status(409).json({ message: 'Book is already returned' });
     }
     return res.status(200).json(await postgreDB.cancelReservation(id));
   } catch (error) {
@@ -687,6 +690,9 @@ app.patch('/reservations/:id/issue', async (req, res) => {
     if (existing.status === 'issued') {
       return res.status(409).json({ message: 'Book is already issued' });
     }
+    if (existing.status === 'returned') {
+      return res.status(409).json({ message: 'Book is already returned' });
+    }
     if (today() < existing.start_date) {
       return res.status(409).json({ message: `Reservation starts on ${existing.start_date}` });
     }
@@ -702,6 +708,62 @@ app.patch('/reservations/:id/issue', async (req, res) => {
     return res.status(200).json(issued);
   } catch (error) {
     logger.error(`[PATCH /reservations/${id}/issue] ${error}`);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+/**
+ * @swagger
+ * /reservations/{id}/return:
+ *   patch:
+ *     summary: Вернуть книгу (issued → returned)
+ *     description: Вернуть можно только выданную книгу. Возврат освобождает даты брони.
+ *     tags: [Reservations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Книга возвращена (status = returned, returned_at = время возврата, late — вернули позже end_date)
+ *       400:
+ *         description: ID не положительное целое
+ *       404:
+ *         description: Бронь не найдена
+ *       409:
+ *         description: Книгу не выдавали (active, cancelled) или уже вернули
+ *       500:
+ *         description: Внутренняя ошибка сервера
+ */
+app.patch('/reservations/:id/return', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    return res.status(400).json({ message: 'Reservation id must be a positive integer' });
+  }
+
+  try {
+    const existing = await postgreDB.readReservationByID(id);
+    if (!existing) {
+      return res.status(404).json({ message: 'Reservation not found' });
+    }
+    if (existing.status === 'returned') {
+      return res.status(409).json({ message: 'Book is already returned' });
+    }
+    if (existing.status !== 'issued') {
+      return res.status(409).json({ message: `Book was not issued (reservation is ${existing.status})` });
+    }
+
+    const returned = await postgreDB.returnReservation(id);
+    // Между проверкой и возвратом книгу успели вернуть другим запросом
+    if (!returned) {
+      return res.status(409).json({ message: 'Book is already returned' });
+    }
+    // Вернули позже последнего дня брони — просрочка
+    return res.status(200).json({ ...returned, late: today() > returned.end_date });
+  } catch (error) {
+    logger.error(`[PATCH /reservations/${id}/return] ${error}`);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });
