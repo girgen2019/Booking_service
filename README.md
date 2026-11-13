@@ -53,6 +53,7 @@ Reservations
 | POST | `/books/:id/reservations` | reserve: `customerName`, `startDate`, `endDate` |
 | GET | `/books/:id/availability?from=&to=` | is the book free on these dates |
 | GET | `/reservations?bookId=` | all reservations or one book's |
+| GET | `/reservations/overdue` | issued and not returned after `end_date`, with `days_overdue` |
 | GET | `/reservations/:id` | one reservation |
 | PATCH | `/reservations/:id/cancel` | cancel |
 | PATCH | `/reservations/:id/issue` | give the book out: `active` → `issued` |

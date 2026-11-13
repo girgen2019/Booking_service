@@ -39,6 +39,11 @@ export interface Reservation {
   returned_at: string | null;
 }
 
+// Выданная книга, которую не вернули к end_date
+export interface OverdueReservation extends Reservation {
+  days_overdue: number;
+}
+
 export interface DBReservationCRUD {
     createReservation(data: ReservationData): Promise<Reservation>;
     readReservations(bookId?: number): Promise<Reservation[]>;
@@ -46,5 +51,6 @@ export interface DBReservationCRUD {
     cancelReservation(id: number): Promise<Reservation | null>;
     issueReservation(id: number): Promise<Reservation | null>;
     returnReservation(id: number): Promise<Reservation | null>;
+    readOverdue(today: string): Promise<OverdueReservation[]>;
     findOverlapping(bookId: number, startDate: string, endDate: string): Promise<Reservation[]>;
 }

@@ -6,6 +6,7 @@ import {
   DBConnection,
   BookData,
   DBReservationCRUD,
+  OverdueReservation,
   Reservation,
   ReservationData,
 } from '../../Interfases/interfaces';
@@ -155,6 +156,18 @@ export class PostgresDB implements DBConnection, DBBaseCRUD, DBReservationCRUD {
     }
     logger.info(chalk.bgBlue(`Reservation ${id} issued`));
     return rows[0];
+  }
+
+  // Выданные книги, у которых последний день брони уже прошёл; самые давние сверху
+  async readOverdue(today: string): Promise<OverdueReservation[]> {
+    const { rows } = await this.pool.query(
+      `SELECT *, ($1::date - end_date) AS days_overdue
+       FROM reservations
+       WHERE status = 'issued' AND end_date < $1::date
+       ORDER BY end_date, id`,
+      [today]
+    );
+    return rows;
   }
 
   // Только из issued: книгу нельзя вернуть, если её не выдавали, и нельзя вернуть дважды

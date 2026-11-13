@@ -546,6 +546,27 @@ app.get('/reservations', async (req, res) => {
 
 /**
  * @swagger
+ * /reservations/overdue:
+ *   get:
+ *     summary: Просроченные брони — книгу выдали и не вернули к end_date
+ *     tags: [Reservations]
+ *     responses:
+ *       200:
+ *         description: Список просрочек, самые давние сверху; days_overdue — на сколько дней просрочено
+ *       500:
+ *         description: Внутренняя ошибка сервера
+ */
+app.get('/reservations/overdue', async (req, res) => {
+  try {
+    return res.status(200).json(await postgreDB.readOverdue(today()));
+  } catch (error) {
+    logger.error(`[GET /reservations/overdue] ${error}`);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+/**
+ * @swagger
  * /reservations/{id}:
  *   get:
  *     summary: Получить бронь по ID
