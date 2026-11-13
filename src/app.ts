@@ -612,7 +612,7 @@ app.get('/reservations/:id', async (req, res) => {
  *       404:
  *         description: Бронь не найдена
  *       409:
- *         description: Бронь уже отменена
+ *         description: Бронь уже отменена или книга уже выдана
  *       500:
  *         description: Внутренняя ошибка сервера
  */
@@ -630,9 +630,78 @@ app.patch('/reservations/:id/cancel', async (req, res) => {
     if (existing.status === 'cancelled') {
       return res.status(409).json({ message: 'Reservation is already cancelled' });
     }
+    // Книга уже у читателя: бронь нельзя просто отменить
+    if (existing.status === 'issued') {
+      return res.status(409).json({ message: 'Book is already issued, the reservation cannot be cancelled' });
+    }
     return res.status(200).json(await postgreDB.cancelReservation(id));
   } catch (error) {
     logger.error(`[PATCH /reservations/${id}/cancel] ${error}`);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+/**
+ * @swagger
+ * /reservations/{id}/issue:
+ *   patch:
+ *     summary: Выдать книгу по брони (active → issued)
+ *     description: Выдать можно только действующую бронь и только в её даты (start_date ≤ сегодня ≤ end_date).
+ *     tags: [Reservations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Книга выдана (status = issued, issued_at = время выдачи)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Reservation'
+ *       400:
+ *         description: ID не положительное целое
+ *       404:
+ *         description: Бронь не найдена
+ *       409:
+ *         description: Бронь отменена, книга уже выдана, срок брони ещё не начался или уже закончился
+ *       500:
+ *         description: Внутренняя ошибка сервера
+ */
+app.patch('/reservations/:id/issue', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    return res.status(400).json({ message: 'Reservation id must be a positive integer' });
+  }
+
+  try {
+    const existing = await postgreDB.readReservationByID(id);
+    if (!existing) {
+      return res.status(404).json({ message: 'Reservation not found' });
+    }
+    if (existing.status === 'cancelled') {
+      return res.status(409).json({ message: 'Reservation is cancelled' });
+    }
+    if (existing.status === 'issued') {
+      return res.status(409).json({ message: 'Book is already issued' });
+    }
+    if (today() < existing.start_date) {
+      return res.status(409).json({ message: `Reservation starts on ${existing.start_date}` });
+    }
+    if (today() > existing.end_date) {
+      return res.status(409).json({ message: `Reservation ended on ${existing.end_date}` });
+    }
+
+    const issued = await postgreDB.issueReservation(id);
+    // Между проверкой и выдачей бронь успели выдать или отменить другим запросом
+    if (!issued) {
+      return res.status(409).json({ message: 'Reservation is no longer active' });
+    }
+    return res.status(200).json(issued);
+  } catch (error) {
+    logger.error(`[PATCH /reservations/${id}/issue] ${error}`);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });

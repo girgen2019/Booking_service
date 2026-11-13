@@ -55,6 +55,7 @@ Reservations
 | GET | `/reservations?bookId=` | all reservations or one book's |
 | GET | `/reservations/:id` | one reservation |
 | PATCH | `/reservations/:id/cancel` | cancel |
+| PATCH | `/reservations/:id/issue` | give the book out: `active` → `issued` |
 
 ```bash
 curl -X POST localhost:3080/books/1/reservations \
@@ -67,14 +68,15 @@ curl -X POST localhost:3080/books/1/reservations \
 - Dates are `YYYY-MM-DD`, both inclusive; the start cannot be in the past, the end cannot be before the start.
 - Overlapping active reservations of the same book are rejected with `409` and the conflicting reservations.
   The database enforces this (`EXCLUDE` constraint), so parallel requests cannot both succeed.
-- A cancelled reservation frees its dates.
+- A cancelled reservation frees its dates; an issued one keeps them.
+- Only an `active` reservation can be issued, and only within its dates. An issued reservation cannot be cancelled.
 
 | Status | When |
 |---|---|
 | 201 | created |
 | 400 | invalid id, name or dates |
 | 404 | book or reservation not found |
-| 409 | dates overlap; reservation already cancelled |
+| 409 | dates overlap; wrong status for the action (already cancelled / issued); issue outside the reservation dates |
 
 ## Check double booking by hand
 
@@ -103,7 +105,7 @@ done; wait
 | Table | Columns |
 |---|---|
 | `books` | `id`, `title`, `author`, `year`, `price`, `created_at` |
-| `reservations` | `id`, `book_id` → `books.id`, `customer_name`, `start_date`, `end_date`, `status` (`active` / `cancelled`), `created_at` |
+| `reservations` | `id`, `book_id` → `books.id`, `customer_name`, `start_date`, `end_date`, `status` (`active` / `issued` / `cancelled`), `created_at`, `issued_at` |
 
 Migrations are plain SQL files in `src/migrations`, applied in order by `npm run migrate`
 and recorded in the `migrations` table. New one: `npm run migrate:create <name>`.
@@ -116,7 +118,7 @@ src/
   server.ts         starts the HTTP server
   DataBase/bd.ts    PostgreSQL queries
   config/swagger.ts OpenAPI setup and schemas
-  migrations/       SQL migrations 001-005
+  migrations/       SQL migrations 001-006
   scripts/          migrate, create-migration
 Interfases/         TypeScript interfaces
 utils/logger.ts     winston logger

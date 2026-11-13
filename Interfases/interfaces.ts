@@ -18,7 +18,7 @@ export interface DBBaseCRUD {
     delete(id:number): Promise<{ deleteBook: BookData | null }>;
 }
 
-export type ReservationStatus = 'active' | 'cancelled';
+export type ReservationStatus = 'active' | 'issued' | 'cancelled';
 
 export interface ReservationData {
   bookId: number;
@@ -35,6 +35,7 @@ export interface Reservation {
   end_date: string;
   status: ReservationStatus;
   created_at: string;
+  issued_at: string | null;
 }
 
 export interface DBReservationCRUD {
@@ -42,5 +43,6 @@ export interface DBReservationCRUD {
     readReservations(bookId?: number): Promise<Reservation[]>;
     readReservationByID(id: number): Promise<Reservation | null>;
     cancelReservation(id: number): Promise<Reservation | null>;
+    issueReservation(id: number): Promise<Reservation | null>;
     findOverlapping(bookId: number, startDate: string, endDate: string): Promise<Reservation[]>;
 }
