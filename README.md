@@ -129,5 +129,4 @@ utils/logger.ts     winston logger
 
 ## Known issues
 
-- `id` fields are returned as strings (`"1"`), not numbers.
 - No automated tests yet.

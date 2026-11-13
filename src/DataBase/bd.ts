@@ -15,6 +15,8 @@ import chalk from 'chalk';
 
 // DATE отдаём как есть ('2026-12-01'), иначе pg превращает его в Date и сдвигает на часовой пояс
 types.setTypeParser(1082, (value: string) => value);
+// BIGINT/BIGSERIAL (id, book_id) pg отдаёт строкой '1'; id здесь далеко от 2^53, поэтому отдаём числом
+types.setTypeParser(20, (value: string) => Number(value));
 
 export class PostgresDB implements DBConnection, DBBaseCRUD, DBReservationCRUD {
   private pool: Pool;
