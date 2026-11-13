@@ -299,7 +299,7 @@ app.put('/book/:id', async (req, res) => {
       return res.status(400).json({ message: 'Price cannot be negative' });
     }
 
-    const { updateBook } = await postgreDB.update(id, title)
+    const { updateBook } = await postgreDB.update(id, { title, author, year, price })
     if (!updateBook) {
       return res.status(404).json("404 Not Found");
     }

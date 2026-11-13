@@ -14,7 +14,7 @@ export interface DBBaseCRUD {
     create(bookData: BookData):Promise<BookData>;
     readByID(id:number): Promise<{ rows: BookData[] }>;
     readAll(): Promise<BookData[]>;
-    update(id:number, newTitle: string): Promise< { updateBook: BookData | null }>;
+    update(id:number, bookData: BookData): Promise< { updateBook: BookData | null }>;
     delete(id:number): Promise<{ deleteBook: BookData | null }>;
 }
 

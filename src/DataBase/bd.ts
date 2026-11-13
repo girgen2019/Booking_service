@@ -73,8 +73,15 @@ export class PostgresDB implements DBConnection, DBBaseCRUD, DBReservationCRUD {
     return allBooks.rows;
   }
 
-  async update(id: number, newTitle: string) {
-    const { rows } = await this.pool.query('UPDATE books SET title = $1 WHERE id = $2 RETURNING *', [newTitle, id])
+  // year и price не переданы — остаются прежними
+  async update(id: number, bookData: BookData) {
+    const { title, author, year, price } = bookData
+    const { rows } = await this.pool.query(
+      `UPDATE books
+       SET title = $1, author = $2, year = COALESCE($3, year), price = COALESCE($4, price)
+       WHERE id = $5
+       RETURNING *`,
+      [title, author, year ?? null, price ?? null, id])
     if (rows.length === 0) {
       logger.warn(chalk.yellow(`Book with id ${id} not found for updating.`));
       return { updateBook: null };

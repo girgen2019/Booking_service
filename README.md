@@ -129,7 +129,6 @@ utils/logger.ts     winston logger
 
 ## Known issues
 
-- `PUT /book/:id` saves only `title`; `author`, `year` and `price` are ignored.
 - `GET /books` prints DB connection settings, including the password, to the console.
 - `id` fields are returned as strings (`"1"`), not numbers.
 - No automated tests yet.
