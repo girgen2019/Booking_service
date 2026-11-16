@@ -8,7 +8,7 @@
     "dev": "tsx watch src/server.ts",
     "typecheck": "tsc",
     "migrate": "node src/scripts/migrate.js",
-    "migrate:create": "node src/scripts/create-migration.js",
+    "migrate:create": "node src/scripts/create-migration.js"
   },
   "keywords": [],
   "author": "",
