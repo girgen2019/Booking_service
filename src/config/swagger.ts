@@ -13,7 +13,7 @@ const swaggerOptions = {
         info: {
             title: 'Booking Service API',
             version: '1.0.0',
-            description: 'API для управления книгами'
+            description: 'API для книг и бронирований'
         },
         servers: [
             {
