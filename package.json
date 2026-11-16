@@ -9,7 +9,6 @@
     "typecheck": "tsc",
     "migrate": "node src/scripts/migrate.js",
     "migrate:create": "node src/scripts/create-migration.js",
-    "migrate:rollback": "node src/scripts/rollback.js",
     "db:check": "node check-db.js"
   },
   "keywords": [],
