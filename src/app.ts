@@ -12,6 +12,7 @@ import cors from 'cors';
 import { errorHandler } from './middleware/error-handler';
 import { isValidDate, today } from './lib/dates';
 import { parseId } from './validation/common';
+import { validateBook } from './validation/books.validation';
 dotenv.config();
 
 const app = express();
@@ -148,26 +149,12 @@ app.get('/book/:id', async (req: Request, res: Response) => {
  */
 app.post('/create/book', async (req, res) => {
   const { title, author, year, price } = req.body;
-  const MAX_VALUE = 1000000;
-
-  if (!title || !author) {
-    return res.status(400).json({ message: 'Names book need necessary' });
+  const validationError = validateBook(req.body);
+  if (validationError) {
+    return res.status(400).json({ message: validationError });
   }
 
   try {
-    if (price !== undefined && typeof price !== 'number') {
-      return res.status(400).json({ message: 'Price not a number' });
-    }
-    if (price !== undefined && !Number.isInteger(price)) {
-      return res.status(400).json({ message: 'Price of book isn\'t integer' });
-    }
-    if (price !== undefined && price < 0) {
-      return res.status(400).json({ message: 'Price cannot be negative' });
-    }
-    if (price !== undefined && price > MAX_VALUE) {
-      return res.status(400).json({ message: 'Price out of range' });
-    }
-
     const bookData = { title, author, year, price }
     const request = await postgreDB.create(bookData);
     return res.status(201).json(request);
@@ -284,23 +271,13 @@ app.delete('/delete/book/:id', async (req, res) => {
  */
 app.put('/book/:id', async (req, res) => {
   const { title, author, year, price } = req.body;
-  if (!title || !author) {
-    return res.status(400).json({ message: 'Names book need necessary' });
+  const validationError = validateBook(req.body);
+  if (validationError) {
+    return res.status(400).json({ message: validationError });
   }
 
   try {
-
     const id = Number(req.params.id);
-    if (price !== undefined && typeof price !== 'number') {
-      return res.status(400).json({ message: 'Price not a number' });
-    }
-    if (price !== undefined && !Number.isInteger(price)) {
-      return res.status(400).json({ message: 'Price of book isn\'t integer' });
-    }
-    if (price !== undefined && price < 0) {
-      return res.status(400).json({ message: 'Price cannot be negative' });
-    }
-
     const { updateBook } = await postgreDB.update(id, { title, author, year, price })
     if (!updateBook) {
       return res.status(404).json("404 Not Found");
