@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './config/swagger';
 import cors from 'cors';
+import { errorHandler } from './middleware/error-handler';
 dotenv.config();
 
 const app = express();
@@ -787,5 +788,8 @@ app.patch('/reservations/:id/return', async (req, res) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 });
+
+// Последним: ловит ошибки всех маршрутов выше
+app.use(errorHandler);
 
 export default app;
