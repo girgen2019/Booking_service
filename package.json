@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsx watch src/server.ts",
+    "typecheck": "tsc",
     "migrate": "node src/scripts/migrate.js",
     "migrate:create": "node src/scripts/create-migration.js",
     "migrate:rollback": "node src/scripts/rollback.js",
