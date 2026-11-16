@@ -1,10 +1,10 @@
 /** @format */
 
-import express, { Request, Response } from 'express';
+import express from 'express';
 import logger from '../utils/logger';
 import chalk from 'chalk';
 import { PostgresDB } from './DataBase/bd';
-import { DBConnection, DBBaseCRUD, BookData, DBReservationCRUD } from '../Interfases/interfaces';
+import { DBConnection, DBBaseCRUD, DBReservationCRUD } from '../Interfases/interfaces';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './config/swagger';
@@ -12,7 +12,10 @@ import cors from 'cors';
 import { errorHandler } from './middleware/error-handler';
 import { isValidDate, today } from './lib/dates';
 import { parseId } from './validation/common';
-import { validateBook } from './validation/books.validation';
+import { createPool } from './db/pool';
+import { PgBooksRepository } from './repositories/books.repository';
+import { BooksService } from './services/books.service';
+import { booksRouter } from './routes/books.routes';
 import { validateReservation } from './validation/reservations.validation';
 dotenv.config();
 
@@ -21,276 +24,15 @@ app.use(express.json());
 app.use(cors())
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
-const postgreDB: DBConnection & DBBaseCRUD & DBReservationCRUD = new PostgresDB();
+const pool = createPool();
+const postgreDB: DBConnection & DBBaseCRUD & DBReservationCRUD = new PostgresDB(pool);
 
 (async () => {
   await postgreDB.connect();
   logger.info(chalk.green('Data Base was connect'));
 })();
 
-/**
- * @swagger
- * /books:
- *   get:
- *     summary: Получить все книги
- *     tags: [Books]
- *     responses:
- *       200:
- *         description: Список всех книг
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Book'
- *       500:
- *         description: Внутренняя ошибка сервера
- */
-app.get('/books', async (req: Request, res: Response) => {
-  try {
-    const allBooks = await postgreDB.readAll();
-    return res.status(200).json(allBooks);
-  } catch (error) {
-    return res.status(500).json('Internal server error');
-  }
-});
-
-/**
- * @swagger
- * /book/{id}:
- *   get:
- *     summary: Получить книгу по ID
- *     tags: [Books]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID книги
- *     responses:
- *       200:
- *         description: Книга найдена
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Book'
- *       404:
- *         description: Книга не найдена
- *       500:
- *         description: Внутренняя ошибка сервера
- */
-app.get('/book/:id', async (req: Request, res: Response) => {
-  try {
-    const id = Number(req.params.id);
-    const { rows } = await postgreDB.readByID(id);
-
-    if (rows.length === 0) {
-      return res.status(404).json('404 Not Found');
-    }
-    return res.status(200).json(rows[0]);
-  } catch (error) {
-    return res.status(500).json('Internal server error');
-  }
-});
-
-/**
- * @swagger
- * /create/book:
- *   post:
- *     summary: Создать новую книгу
- *     tags: [Books]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - title
- *               - author
- *             properties:
- *               title:
- *                 type: string
- *                 description: Название книги
- *                 example: "example"
- *               author:
- *                 type: string
- *                 description: Автор книги
- *                 example: "author example"
- *               year:
- *                 type: integer
- *                 description: Год издания
- *                 example: year
- *               price:
- *                 type: integer
- *                 nullable: true
- *                 minimum: 0
- *                 maximum: 1000000
- *                 description: Цена книги (целое число, опционально)
- *                 example: price
- *     responses:
- *       201:
- *         description: Книга успешно создана
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Book'
- *       400:
- *         description: Ошибка валидации
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *       500:
- *         description: Внутренняя ошибка сервера
- */
-app.post('/create/book', async (req, res) => {
-  const { title, author, year, price } = req.body;
-  const validationError = validateBook(req.body);
-  if (validationError) {
-    return res.status(400).json({ message: validationError });
-  }
-
-  try {
-    const bookData = { title, author, year, price }
-    const request = await postgreDB.create(bookData);
-    return res.status(201).json(request);
-  } catch (error) {
-    console.error('[POST /books] error:', error);
-    return res
-      .status(500)
-      .json({ message: 'Internal server error', error });
-  }
-});
-
-/**
- * @swagger
- * /delete/book/{id}:
- *   delete:
- *     summary: Удалить книгу по ID
- *     tags: [Books]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID книги для удаления
- *     responses:
- *       200:
- *         description: Книга успешно удалена
- *         content:
- *           application/json:
- *             schema:
- *               type: string
- *               example: "George Orwell \"1984\" was deleted"
- *       404:
- *         description: Книга не найдена
- *       500:
- *         description: Внутренняя ошибка сервера
- */
-app.delete('/delete/book/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    const { deleteBook } = await postgreDB.delete(id);
-
-    if (!deleteBook) {
-      return res.status(404).json("404 Not Found");
-    }
-
-    logger.info(chalk.bgGreen(deleteBook));
-    return res.status(200).json(`${deleteBook.author} "${deleteBook.title}" was deleted`);
-  } catch (error) {
-    return res.status(500).json('Internal server error');
-  }
-});
-
-/**
- * @swagger
- * /book/{id}:
- *   put:
- *     summary: Обновить книгу по ID
- *     tags: [Books]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID книги для обновления
- *     requestBody:
- *       required: false
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *                 description: Название книги
- *                 example: "1984"
- *               author:
- *                 type: string
- *                 description: Автор книги
- *                 example: "George Orwell"
- *               year:
- *                 type: integer
- *                 description: Год издания
- *                 example: 1949
- *               price:
- *                 type: integer
- *                 nullable: true
- *                 minimum: 0
- *                 maximum: 1000000
- *                 description: Цена книги (целое число, опционально)
- *                 example: 500
- *     responses:
- *       200:
- *         description: Книга успешно обновлена
- *         content:
- *           application/json:
- *             schema:
- *               type: string
- *               example: "George Orwell \"1984\" was updated"
- *       400:
- *         description: Ошибка валидации
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *       404:
- *         description: Книга не найдена
- *       500:
- *         description: Внутренняя ошибка сервера
- */
-app.put('/book/:id', async (req, res) => {
-  const { title, author, year, price } = req.body;
-  const validationError = validateBook(req.body);
-  if (validationError) {
-    return res.status(400).json({ message: validationError });
-  }
-
-  try {
-    const id = Number(req.params.id);
-    const { updateBook } = await postgreDB.update(id, { title, author, year, price })
-    if (!updateBook) {
-      return res.status(404).json("404 Not Found");
-    }
-    logger.info(chalk.bgGreen(updateBook));
-    return res.status(200).json(`"${updateBook.title}" was updated`);
-  } catch (error) {
-    return res.status(500).json('Internal server error');
-
-  }
-
-})
+app.use(booksRouter(new BooksService(new PgBooksRepository(pool))));
 
 // ================ RESERVATIONS
 
