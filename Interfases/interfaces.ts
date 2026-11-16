@@ -10,6 +10,12 @@ export interface BookData {
   price?: number;
 }
 
+// Книга из базы
+export interface Book extends BookData {
+  id: number;
+  created_at: string;
+}
+
 export interface DBBaseCRUD {
     create(bookData: BookData):Promise<BookData>;
     readByID(id:number): Promise<{ rows: BookData[] }>;
