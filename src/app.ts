@@ -13,6 +13,7 @@ import { errorHandler } from './middleware/error-handler';
 import { isValidDate, today } from './lib/dates';
 import { parseId } from './validation/common';
 import { validateBook } from './validation/books.validation';
+import { validateReservation } from './validation/reservations.validation';
 dotenv.config();
 
 const app = express();
@@ -293,19 +294,7 @@ app.put('/book/:id', async (req, res) => {
 
 // ================ RESERVATIONS
 
-const MAX_CUSTOMER_NAME = 100;
 const PG_EXCLUSION_VIOLATION = '23P01'; // код ошибки Postgres: нарушено ограничение EXCLUDE (двойная бронь)
-
-function validateReservation(body: any): string | null {
-  const { customerName, startDate, endDate } = body ?? {};
-  if (typeof customerName !== 'string' || !customerName.trim()) return 'customerName is required';
-  if (customerName.trim().length > MAX_CUSTOMER_NAME) return `customerName is longer than ${MAX_CUSTOMER_NAME} characters`;
-  if (!isValidDate(startDate)) return 'startDate must be a real date in YYYY-MM-DD format';
-  if (!isValidDate(endDate)) return 'endDate must be a real date in YYYY-MM-DD format';
-  if (startDate < today()) return 'startDate cannot be in the past';
-  if (endDate < startDate) return 'endDate cannot be before startDate';
-  return null;
-}
 
 /**
  * @swagger
