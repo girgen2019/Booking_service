@@ -113,19 +113,50 @@ done; wait
 Migrations are plain SQL files in `src/migrations`, applied in order by `npm run migrate`
 and recorded in the `migrations` table. New one: `npm run migrate:create <name>`.
 
+## Architecture
+
+```
+request → route → controller → service → repository → PostgreSQL
+```
+
+| Layer | Does | Does not |
+|---|---|---|
+| `routes/` | path → controller method, Swagger docs | any logic |
+| `controllers/` | read id / body / query, check the format, pick the status code | business rules, SQL |
+| `services/` | rules: dates do not overlap, status transitions, issue only within the dates | HTTP, SQL |
+| `repositories/` | SQL only | checks, HTTP |
+| `middleware/error-handler.ts` | `AppError` → its status and body, anything else → `500` | |
+
+Services and controllers throw `ValidationError` (400), `NotFoundError` (404), `ConflictError` (409);
+there is no `try/catch` in the routes.
+
+`server.ts` is the only place that creates the pool, repositories and services and passes them to
+`createApp(services)`. A test can pass services built on fake repositories, and `ReservationsService`
+takes a `clock` so "today" can be any day.
+
 ## Project structure
 
 ```
 src/
-  app.ts            routes, validation, Swagger docs
-  server.ts         starts the HTTP server
-  DataBase/bd.ts    PostgreSQL queries
+  server.ts         builds pool → repositories → services → app, starts HTTP
+  app.ts            createApp(services): middleware, routers, error handler
+  routes/           paths and Swagger docs
+  controllers/      HTTP ⇄ service
+  services/         business rules
+  repositories/     PostgreSQL queries
+  validation/       request format checks
+  errors/           AppError, ValidationError, NotFoundError, ConflictError
+  middleware/       error handler
+  db/pool.ts        connection pool, DATE / BIGINT parsing
+  lib/dates.ts      today(), isValidDate()
   config/swagger.ts OpenAPI setup and schemas
   migrations/       SQL migrations 001-007
   scripts/          migrate, create-migration
-Interfases/         TypeScript interfaces
+Interfases/         TypeScript types
 utils/logger.ts     winston logger
 ```
+
+Type check: `npm run typecheck`.
 
 ## Known issues
 
