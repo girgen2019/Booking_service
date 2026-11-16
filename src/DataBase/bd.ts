@@ -1,6 +1,7 @@
 /** @format */
 
-import { Pool, PoolConfig, types } from 'pg';
+import { Pool } from 'pg';
+import { createPool } from '../db/pool';
 import {
   DBBaseCRUD,
   DBConnection,
@@ -13,36 +14,16 @@ import {
 import logger from '../../utils/logger';
 import chalk from 'chalk';
 
-// DATE отдаём как есть ('2026-12-01'), иначе pg превращает его в Date и сдвигает на часовой пояс
-types.setTypeParser(1082, (value: string) => value);
-// BIGINT/BIGSERIAL (id, book_id) pg отдаёт строкой '1'; id здесь далеко от 2^53, поэтому отдаём числом
-types.setTypeParser(20, (value: string) => Number(value));
-
 export class PostgresDB implements DBConnection, DBBaseCRUD, DBReservationCRUD {
-  private pool: Pool;
-  constructor(
-    private user = process.env.DB_USER,
-    private host = process.env.DB_HOST,
-    private database = process.env.DB_NAME,
-    private password = process.env.DB_PASSWORD,
-    private port = parseInt(process.env.DB_PORT || '5432')
-  ) {
-    const dbConfig: PoolConfig = {
-      user: this.user,
-      host: this.host,
-      database: this.database,
-      password: this.password,
-      port: this.port,
-    };
-    this.pool = new Pool(dbConfig);
-  }
+  // Пул передаётся снаружи, чтобы всё приложение работало через одно подключение
+  constructor(private pool: Pool = createPool()) {}
 
   // Без пароля: настройки подключения попадают в логи
   print(): void {
-    console.log(this.user);
-    console.log(this.database);
-    console.log(this.port);
-    console.log(this.host);
+    console.log(process.env.DB_USER);
+    console.log(process.env.DB_NAME);
+    console.log(process.env.DB_PORT);
+    console.log(process.env.DB_HOST);
   }
 
   async connect() {
