@@ -10,6 +10,8 @@ import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './config/swagger';
 import cors from 'cors';
 import { errorHandler } from './middleware/error-handler';
+import { isValidDate, today } from './lib/dates';
+import { parseId } from './validation/common';
 dotenv.config();
 
 const app = express();
@@ -316,21 +318,6 @@ app.put('/book/:id', async (req, res) => {
 
 const MAX_CUSTOMER_NAME = 100;
 const PG_EXCLUSION_VIOLATION = '23P01'; // код ошибки Postgres: нарушено ограничение EXCLUDE (двойная бронь)
-
-// Положительное целое из пути или query (?bookId=), иначе null → 400 вместо падения базы на NaN
-function parseId(value: unknown): number | null {
-  const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
-
-// Настоящая дата в формате YYYY-MM-DD (2026-02-31 не пройдёт)
-function isValidDate(value: unknown): value is string {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(value + 'T00:00:00Z');
-  return !isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
-
-const today = () => new Date().toISOString().slice(0, 10);
 
 function validateReservation(body: any): string | null {
   const { customerName, startDate, endDate } = body ?? {};
