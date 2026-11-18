@@ -158,6 +158,22 @@ utils/logger.ts     winston logger
 
 Type check: `npm run typecheck`.
 
-## Known issues
+## Tests
 
-- No automated tests yet.
+```bash
+npm test            # unit and API tests, no database needed
+npm run typecheck
+```
+
+| File | Checks |
+|---|---|
+| `dates`, `*.validation` | id, date, book and reservation format rules |
+| `books.service` | catalog CRUD, 404 for a missing book |
+| `reservations.create` | double booking (inside, same last day, covering), next day free, cancel frees dates, availability |
+| `reservations.lifecycle` | issue only within dates, cancel / return rules, late return, overdue, two parallel issues |
+| `api` | real Express routes and error handler: 400 for bad id and broken JSON, 404, 409 with conflicts |
+
+Services get in-memory repositories (`tests/fakes.ts`) and a fixed "today", so tests do not depend on the database or the date.
+The database constraint against parallel double booking is not covered: check it by hand (see above).
+
+CI (GitHub Actions) runs both on every push to `main`.
