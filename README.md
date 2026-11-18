@@ -17,6 +17,8 @@ docker compose up
 
 API: http://localhost:3080 · Swagger: http://localhost:3080/api-docs
 
+Compose starts the app only after PostgreSQL is ready, and marks the app healthy once `GET /health` answers.
+
 Locally (PostgreSQL 13+ required):
 
 ```bash
