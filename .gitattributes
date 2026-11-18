@@ -1,0 +1,3 @@
+# Text files are stored with LF in the repo on any OS
+* text=auto
+*.sh text eol=lf
