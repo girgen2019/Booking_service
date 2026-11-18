@@ -1,5 +1,7 @@
 # Booking Service
 
+[![CI](https://github.com/girgen2019/Booking_service/actions/workflows/ci.yml/badge.svg)](https://github.com/girgen2019/Booking_service/actions/workflows/ci.yml)
+
 REST API for a book catalog and date-based book reservations.
 A book cannot be reserved twice for overlapping dates.
 
@@ -35,6 +37,8 @@ Environment variables (`.env`):
 | `DB_PASSWORD` | — |
 
 ## API
+
+`GET /health` — the server is up: `{ "status": "ok", "uptime": 42 }`.
 
 Books
 
