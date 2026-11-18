@@ -5,6 +5,7 @@ import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './config/swagger';
 import { errorHandler } from './middleware/error-handler';
+import { healthRouter } from './routes/health.routes';
 import { booksRouter } from './routes/books.routes';
 import { reservationsRouter } from './routes/reservations.routes';
 import { BooksService } from './services/books.service';
@@ -22,6 +23,8 @@ export function createApp(services: AppServices) {
   app.use(express.json());
   app.use(cors());
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+  app.use(healthRouter());
 
   app.use(booksRouter(services.books));
   app.use(reservationsRouter(services.reservations));

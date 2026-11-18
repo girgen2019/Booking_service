@@ -65,3 +65,9 @@ test('/reservations/overdue is not taken for /reservations/:id', async () => {
   assert.deepEqual(await call('GET', '/reservations/overdue'), { status: 200, body: [] });
   assert.equal((await call('GET', '/reservations/abc')).status, 400);
 });
+
+test('GET /health answers ok', async () => {
+  const res = await call('GET', '/health');
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'ok');
+});
