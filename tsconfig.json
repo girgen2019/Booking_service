@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "Interfases/**/*.ts", "utils/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "Interfases/**/*.ts", "utils/**/*.ts"]
 }
