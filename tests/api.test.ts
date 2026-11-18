@@ -71,3 +71,26 @@ test('GET /health answers ok', async () => {
   assert.equal(res.status, 200);
   assert.equal(res.body.status, 'ok');
 });
+
+test('create, update and delete a book', async () => {
+  const created = await call('POST', '/create/book', { title: 'Dune', author: 'Frank Herbert', year: 1965, price: 300 });
+  assert.equal(created.status, 201);
+  const id = created.body.id;
+
+  assert.deepEqual(await call('PUT', `/book/${id}`, { title: 'Dune Messiah', author: 'Frank Herbert' }), {
+    status: 200,
+    body: '"Dune Messiah" was updated',
+  });
+  assert.equal((await call('GET', `/book/${id}`)).body.price, 300); // цена не передана — осталась прежней
+
+  assert.deepEqual(await call('DELETE', `/delete/book/${id}`), { status: 200, body: 'Frank Herbert "Dune Messiah" was deleted' });
+  assert.equal((await call('GET', `/book/${id}`)).status, 404);
+});
+
+test('invalid book body is 400 for create and update', async () => {
+  assert.deepEqual(await call('POST', '/create/book', { title: 'Dune' }), { status: 400, body: { message: 'Names book need necessary' } });
+  assert.deepEqual(await call('PUT', '/book/1', { title: 'T', author: 'A', price: -1 }), {
+    status: 400,
+    body: { message: 'Price cannot be negative' },
+  });
+});
