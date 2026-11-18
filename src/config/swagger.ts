@@ -21,6 +21,11 @@ const swaggerOptions = {
                 description: 'Development server'
             }
         ],
+        tags: [
+            { name: 'Books', description: 'Каталог книг' },
+            { name: 'Reservations', description: 'Бронирование, выдача и возврат книг' },
+            { name: 'Health', description: 'Проверка, что сервер жив' }
+        ],
         components: {
             schemas: {
                 Book: {
