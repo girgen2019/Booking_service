@@ -94,3 +94,15 @@ test('invalid book body is 400 for create and update', async () => {
     body: { message: 'Price cannot be negative' },
   });
 });
+
+test('GET /reservations filters by bookId and rejects a bad bookId', async () => {
+  const forBook1 = await call('GET', '/reservations?bookId=1');
+  assert.equal(forBook1.status, 200);
+  assert.ok(forBook1.body.length > 0);
+  assert.ok(forBook1.body.every((r: { book_id: number }) => r.book_id === 1));
+  assert.deepEqual(await call('GET', '/reservations?bookId=2'), { status: 200, body: [] });
+  assert.deepEqual(await call('GET', '/reservations?bookId=x'), {
+    status: 400,
+    body: { message: 'bookId must be a positive integer' },
+  });
+});
