@@ -106,3 +106,15 @@ test('GET /reservations filters by bookId and rejects a bad bookId', async () =>
     body: { message: 'bookId must be a positive integer' },
   });
 });
+
+test('GET /books/:id/availability: free dates, wrong period is 400, missing book is 404', async () => {
+  const free = await call('GET', '/books/1/availability?from=2099-06-01&to=2099-06-02');
+  assert.equal(free.status, 200);
+  assert.equal(free.body.available, true);
+  assert.deepEqual(await call('GET', '/books/1/availability?from=2099-06-02&to=2099-06-01'), {
+    status: 400,
+    body: { message: 'to cannot be before from' },
+  });
+  assert.equal((await call('GET', '/books/1/availability?from=bad&to=2099-06-01')).status, 400);
+  assert.equal((await call('GET', '/books/99/availability?from=2099-06-01&to=2099-06-02')).status, 404);
+});
