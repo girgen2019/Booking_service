@@ -31,6 +31,11 @@ services:
       DB_NAME: ${DB_NAME:-bookingdb}
       DB_PORT: 5432
       NODE_ENV: ${NODE_ENV:-development}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
     depends_on:
       db:
         condition: service_healthy
